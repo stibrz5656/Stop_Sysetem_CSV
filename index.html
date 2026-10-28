@@ -1,0 +1,1352 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一時停止標識検知システム</title>
+
+<style>
+
+body {
+  background-color: #f7f9fa;
+  margin: 0;
+  padding: 0;
+  font-family: 'Arial Black','Impact',
+    'Hiragino Kaku Gothic StdN',sans-serif;
+  text-align: center;
+  overflow-x: hidden;
+  transition: background-color 0.5s ease;
+}
+
+#help-button {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-size: 16px;
+  color: #999;
+  background: white;
+  border: 2px solid #ddd;
+  padding: 6px 22px;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,.03);
+  transition: all .2s;
+  z-index: 10;
+}
+
+#help-button:hover { background: #f5f5f5; }
+
+#date-display {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  font-size: 13px;
+  color: #333;
+  background: rgba(255,255,255,.92);
+  border: 2px solid #ddd;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-weight: bold;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  font-family: sans-serif;
+}
+
+.main-container {
+  padding-top: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#title-container {
+  margin-bottom: 25px;
+  line-height: 1.1;
+}
+
+.logo-char {
+  display: inline-block;
+  font-size: 55px;
+  font-weight: 900;
+  letter-spacing: -2px;
+  text-shadow:
+    3px 3px 0 #222,
+    -3px 3px 0 #222,
+    3px -3px 0 #222,
+    -3px -3px 0 #222,
+    3px 0 0 #222,
+    -3px 0 0 #222,
+    0 3px 0 #222,
+    0 -3px 0 #222,
+    5px 8px 0 rgba(0,0,0,.15);
+  margin: 0 2px;
+}
+
+.char-b { color: #4DA6FF; transform: rotate(-5deg); }
+.char-p { color: #FF6B6B; transform: rotate(5deg); }
+.char-y { color: #FAD02E; transform: rotate(-3deg); }
+.char-g { color: #2ECC71; transform: rotate(4deg); }
+
+.sub-title {
+  font-size: 18px;
+  color: #444;
+  font-weight: bold;
+  margin-top: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+#image-container {
+  max-width: 90%;
+  margin: 0 auto 25px;
+}
+
+.roadmap-img {
+  max-width: 85%;
+  height: auto;
+  border-radius: 20px;
+}
+
+#start-button {
+  color: #333;
+  font-size: 24px;
+  background-image: linear-gradient(
+    to bottom,#FFE169 0%,#FAD02E 100%
+  );
+  padding: 12px 40px;
+  border-radius: 35px;
+  border: 1px solid #E6B800;
+  box-shadow:
+    0 10px 20px rgba(0,0,0,.15),
+    inset 0 3px 6px rgba(255,255,255,.6),
+    inset 0 -5px 8px rgba(0,0,0,.1);
+  font-weight: bold;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+#start-button:active {
+  transform: translateY(3px);
+}
+
+#webcam-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  position: relative;
+  margin-top: 20px;
+}
+
+#webcam-container canvas {
+  display: block;
+  width: min(90vw,500px);
+  max-width: 100%;
+  height: auto;
+  border-radius: 15px;
+  border: 4px solid #333;
+}
+
+#sensor-data {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  font-size: 13px;
+  color: white;
+  background: rgba(0,0,0,.85);
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-family: monospace;
+  text-align: left;
+  line-height: 1.5;
+  z-index: 100;
+  display: none;
+  box-shadow: 0 4px 10px rgba(0,0,0,.3);
+  max-width: min(270px,65vw);
+}
+
+#sensor-data div {
+  color: white;
+  font-size: 13px;
+}
+
+#csv-button {
+  display: block;
+  width: 100%;
+  margin-top: 9px;
+  background: #FFE169;
+  color: #333;
+  border: 0;
+  padding: 9px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#log-count {
+  font-size: 11px !important;
+  color: #ddd !important;
+  margin-top: 4px;
+}
+
+/* ===== 元の警告表示 ===== */
+#warning-message {
+  display: none;
+  font-size: 28px;
+  line-height: 1.4;
+  color: white;
+  font-weight: bold;
+  padding: 20px 30px;
+  width: 75%;
+  max-width: 340px;
+  border-radius: 25px;
+  white-space: pre-line;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  z-index: 90;
+  text-align: center;
+  box-shadow: 0 15px 35px rgba(0,0,0,.25);
+  background-image: linear-gradient(
+    135deg,#555 0%,#333 100%
+  );
+  transition: background-color .3s ease;
+  pointer-events: none;
+}
+
+@media (max-width:480px) {
+  #date-display {
+    right: 8px;
+    bottom: 8px;
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  #sensor-data {
+    top: 8px;
+    right: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  #sensor-data div {
+    font-size: 11px;
+  }
+
+  #warning-message {
+    font-size: 24px;
+    padding: 18px 20px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<button id="help-button" onclick="showHelp()">
+  ヘルプ
+</button>
+
+<div id="date-display">----/--/-- --:--:--</div>
+
+
+<div id="sensor-data">
+  <div>日時: <span id="val-date">--</span></div>
+  <div>
+    GPS速度:
+    <span id="val-speed" style="color:#2ECC71">--</span>
+    km/h
+  </div>
+  <div>
+    GPS取得:
+    <span id="val-gps-source">未取得</span>
+  </div>
+  <div>
+    GPS精度:
+    <span id="val-accuracy">--</span>
+  </div>
+  <div>
+    揺れ:
+    <span id="val-acc" style="color:#FFE169">--</span>
+  </div>
+  <div>
+    止まれ確率:
+    <span id="val-ai" style="color:#4DA6FF">0.00</span>
+  </div>
+  <div>
+    標識検知:
+    <span id="flag-visible" style="color:#FF6B6B">false</span>
+  </div>
+  <div>
+    停止判定:
+    <span id="flag-stopped" style="color:#2ECC71">未確認</span>
+  </div>
+  <div>
+    連続認識:
+    <span id="val-confirm" style="color:#FAD02E">0</span>
+  </div>
+  <div>
+    AI判定:
+    <span id="val-class">---</span>
+  </div>
+  <div>
+    判定状態:
+    <span id="val-phase">待機</span>
+  </div>
+  <div>
+    走行履歴:
+    <span id="val-moving">なし</span>
+  </div>
+
+  <button id="csv-button" onclick="downloadCSV()">
+    CSV記録を保存
+  </button>
+  <div id="log-count">記録件数：0</div>
+</div>
+
+<div class="main-container">
+  <div id="title-container">
+    <span class="logo-char char-b">S</span>
+    <span class="logo-char char-p">T</span>
+    <span class="logo-char char-y">O</span>
+    <span class="logo-char char-g">P</span>
+    <div class="sub-title">Detection System</div>
+  </div>
+
+  <div id="image-container">
+    <img
+      id="character-image"
+      src="キャラ.png"
+      alt="表示できません"
+      class="roadmap-img"
+    >
+  </div>
+
+  <button
+    id="start-button"
+    type="button"
+    onclick="startSystem()"
+  >
+    Tap to Start
+  </button>
+</div>
+
+<div class="container-center">
+  <div id="webcam-container"></div>
+</div>
+
+<div id="warning-message">監視中...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<script>
+"use strict";
+
+// ============================================
+// 設定
+// ============================================
+
+// 最新版で使用しているAIモデルを維持
+const MODEL_URL =
+  "https://teachablemachine.withgoogle.com/models/-RzfjiMK8/";
+
+const STOP_LABEL = "止まれ";
+
+// AI認識
+const THRESHOLD_AI = 0.80;
+const THRESHOLD_AI_LOST = 0.45;
+const SIGN_CONFIRM_FRAMES = 3;
+const SIGN_LOST_FRAMES = 6;
+const AI_INTERVAL_MS = 250;
+
+// 停止判定
+// GPS速度 1.5km/h 以下
+const STOP_SPEED_KMH = 1.5;
+
+// 3軸の加速度絶対値の合計（m/s²）
+const THRESHOLD_ACCEL = 0.50;
+
+// 両条件が2秒間続く
+const STOP_CONFIRM_MS = 2000;
+
+// 走行履歴の確認
+const MOVING_SPEED_KMH = 3.0;
+const MOVING_WINDOW_MS = 20000;
+
+// センサー更新期限
+const GPS_STALE_MS = 6000;
+const MOTION_STALE_MS = 2500;
+
+// 標識を認識してからの監視期間
+const MONITOR_MS = 15000;
+
+// 結果を表示する期間
+const RESULT_DISPLAY_MS = 3500;
+
+// 次の標識として再認識する条件
+const REARM_ABSENT_MS = 5000;
+
+// CSV記録
+const LOG_INTERVAL_MS = 500;
+const MAX_LOGS = 12000;
+
+// ============================================
+// 状態管理
+// ============================================
+
+let model = null;
+let webcam = null;
+let maxPredictions = 0;
+
+let systemStarted = false;
+let lastPredictAt = 0;
+
+let stopProb = 0;
+let bestClass = "---";
+let bestProb = 0;
+
+let signConfirmCount = 0;
+let signLostCount = 0;
+let isSignVisible = false;
+let signAbsentSince = 0;
+
+// idle / monitoring / result
+let phase = "idle";
+let monitorStartedAt = 0;
+let resultAt = 0;
+let resultText = "";
+
+let stopStartTime = null;
+let hasStopped = false;
+let stoppedByEstimate = false;
+let hadMovingBeforeSign = false;
+
+// GPS
+let gpsSpeedKmh = NaN;
+let gpsSpeedSource = "未取得";
+let gpsAccuracy = NaN;
+let gpsUpdatedAt = 0;
+let gpsAvailable = false;
+
+let lastPosition = null;
+let recentSpeedSamples = [];
+
+let movingAt = 0;
+let movingFixCount = 0;
+
+// 加速度
+let currentAcceleration = NaN;
+let motionAvailable = false;
+let motionUpdatedAt = 0;
+let motionSamples = [];
+
+// CSVログ
+let logs = [];
+
+// ============================================
+// 共通処理
+// ============================================
+
+function el(id) {
+  return document.getElementById(id);
+}
+
+function localTime(date = new Date()) {
+  return (
+    date.getFullYear() + "/" +
+    String(date.getMonth()+1).padStart(2,"0") + "/" +
+    String(date.getDate()).padStart(2,"0") + " " +
+    String(date.getHours()).padStart(2,"0") + ":" +
+    String(date.getMinutes()).padStart(2,"0") + ":" +
+    String(date.getSeconds()).padStart(2,"0")
+  );
+}
+
+function updateDateTime() {
+  const text = localTime();
+  el("date-display").textContent = text;
+  el("val-date").textContent = text;
+}
+
+updateDateTime();
+setInterval(updateDateTime,1000);
+
+function gpsFresh() {
+  return gpsAvailable &&
+    Number.isFinite(gpsSpeedKmh) &&
+    Number.isFinite(gpsAccuracy) &&
+    gpsAccuracy <= 35 &&
+    Date.now()-gpsUpdatedAt <= GPS_STALE_MS;
+}
+
+function motionFresh() {
+  return motionAvailable &&
+    Number.isFinite(currentAcceleration) &&
+    Date.now()-motionUpdatedAt <= MOTION_STALE_MS;
+}
+
+function recentMoving() {
+  return movingAt > 0 &&
+    Date.now()-movingAt <= MOVING_WINDOW_MS;
+}
+
+function showMessage(message, colors = "neutral") {
+  const box = el("warning-message");
+
+  const themes = {
+    neutral: {
+      background: "#f7f9fa",
+      gradient: "linear-gradient(135deg,#555,#333)",
+      shadow: "rgba(0,0,0,.2)"
+    },
+    orange: {
+      background: "#ffe6cc",
+      gradient: "linear-gradient(135deg,#FF9500,#FF5E00)",
+      shadow: "rgba(255,149,0,.4)"
+    },
+    green: {
+      background: "#e6ffed",
+      gradient: "linear-gradient(135deg,#2ECC71,#27AE60)",
+      shadow: "rgba(46,204,113,.5)"
+    },
+    red: {
+      background: "#ffcccc",
+      gradient: "linear-gradient(135deg,#FF6B6B,#FF3B30)",
+      shadow: "rgba(255,59,48,.5)"
+    }
+  };
+
+  const theme = themes[colors] || themes.neutral;
+
+  document.body.style.backgroundColor =
+    theme.background;
+
+  box.textContent = message;
+  box.style.backgroundImage = theme.gradient;
+  box.style.boxShadow =
+    "0 15px 35px " + theme.shadow;
+  box.style.display = "block";
+}
+
+function speakAlert(text) {
+  if (!window.speechSynthesis) return;
+
+  try {
+    window.speechSynthesis.cancel();
+
+    const speech =
+      new SpeechSynthesisUtterance(text);
+
+    speech.lang = "ja-JP";
+    speech.rate = 1.15;
+    speech.volume = 1;
+
+    window.speechSynthesis.speak(speech);
+
+  } catch(error) {
+    console.warn("音声エラー",error);
+  }
+}
+
+function showHelp() {
+  alert(
+    "【使い方】\n\n" +
+    "1. Tap to Startを押します。\n" +
+    "2. カメラ・位置情報・加速度を許可します。\n" +
+    "3. スマホを固定して安全な場所で実験します。\n" +
+    "4. AIが止まれ標識を検知すると警告します。\n" +
+    "5. GPS速度と加速度の両方から停止を判定します。\n" +
+    "6. 実験終了後にCSV記録を保存できます。\n\n" +
+    "【注意】\n" +
+    "標識が見えなくなっただけで、停止線を" +
+    "通過したとは判定できません。\n" +
+    "このシステムは研究用であり、交通違反を" +
+    "判定するものではありません。\n" +
+    "走行中はスマートフォンを操作しないでください。"
+  );
+}
+
+// ============================================
+// GPS：距離と速度
+// ============================================
+
+function distanceMeters(lat1,lon1,lat2,lon2) {
+  const r = Math.PI/180;
+
+  const a =
+    Math.sin((lat2-lat1)*r/2)**2 +
+    Math.cos(lat1*r) *
+    Math.cos(lat2*r) *
+    Math.sin((lon2-lon1)*r/2)**2;
+
+  return 6371000*2*
+    Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function median(values) {
+  if (!values.length) return NaN;
+
+  const sorted = [...values].sort((a,b)=>a-b);
+  const mid = Math.floor(sorted.length/2);
+
+  return sorted.length%2
+    ? sorted[mid]
+    : (sorted[mid-1]+sorted[mid])/2;
+}
+
+function startGPS() {
+  if (!navigator.geolocation) {
+    gpsSpeedSource = "GPS非対応";
+    return;
+  }
+
+  navigator.geolocation.watchPosition(
+    onGPS,
+    onGPSError,
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 15000
+    }
+  );
+}
+
+function onGPS(position) {
+  const c = position.coords;
+  const now = Date.now();
+  const fixTime = position.timestamp || now;
+
+  gpsAccuracy = c.accuracy;
+
+  let nextSpeed = NaN;
+  let nextSource = "速度未取得";
+
+  // GPSが直接速度を返した場合
+  if (
+    Number.isFinite(c.speed) &&
+    c.speed >= 0
+  ) {
+    nextSpeed = c.speed*3.6;
+    nextSource = "GPS直接";
+
+  // 速度がnullの場合は2地点間から推定
+  } else if (
+    lastPosition &&
+    c.accuracy <= 25 &&
+    lastPosition.accuracy <= 25
+  ) {
+    const seconds =
+      (fixTime-lastPosition.time)/1000;
+
+    if (seconds>=1 && seconds<=15) {
+      const meters = distanceMeters(
+        lastPosition.lat,
+        lastPosition.lon,
+        c.latitude,
+        c.longitude
+      );
+
+      nextSpeed = meters/seconds*3.6;
+      nextSource = "位置推定";
+
+      // 明らかに異常な速度を除外
+      if (nextSpeed>50) {
+        nextSpeed = NaN;
+        nextSource = "速度異常";
+      }
+    }
+  }
+
+  lastPosition = {
+    lat: c.latitude,
+    lon: c.longitude,
+    accuracy: c.accuracy,
+    time: fixTime
+  };
+
+  // 新しい位置情報自体が古ければ採用しない
+  if (now-fixTime>GPS_STALE_MS) {
+    gpsAvailable = false;
+    gpsSpeedSource = "GPS更新遅延";
+    return;
+  }
+
+  if (
+    Number.isFinite(nextSpeed) &&
+    c.accuracy<=35
+  ) {
+    recentSpeedSamples.push({
+      speed: nextSpeed,
+      source: nextSource,
+      time: now
+    });
+
+    recentSpeedSamples =
+      recentSpeedSamples.filter(
+        s=>now-s.time<=5000
+      );
+
+    if (recentSpeedSamples.length>5) {
+      recentSpeedSamples.shift();
+    }
+
+    const values = recentSpeedSamples
+      .filter(s=>s.source===nextSource)
+      .map(s=>s.speed);
+
+    gpsSpeedKmh = median(values);
+    gpsSpeedSource = nextSource;
+    gpsUpdatedAt = now;
+    gpsAvailable = true;
+
+    // 走行履歴は連続したGPS更新で確認
+    if (gpsSpeedKmh>=MOVING_SPEED_KMH) {
+      movingFixCount++;
+
+      if (movingFixCount>=2) {
+        movingAt = now;
+      }
+    } else {
+      movingFixCount = 0;
+    }
+
+  } else {
+    gpsAvailable = false;
+    gpsSpeedKmh = NaN;
+    gpsSpeedSource =
+      c.accuracy>35
+        ? "GPS精度不足"
+        : nextSource==="速度異常"
+          ? "速度異常"
+          : "速度計算待ち";
+  }
+}
+
+function onGPSError(error) {
+  gpsAvailable = false;
+  gpsSpeedKmh = NaN;
+  gpsSpeedSource = "GPSエラー(" + error.code + ")";
+  console.warn("GPSエラー",error);
+}
+
+// ============================================
+// 加速度センサー
+// ============================================
+
+function handleMotion(event) {
+  const a = event.acceleration;
+
+  if (
+    !a ||
+    !Number.isFinite(a.x) ||
+    !Number.isFinite(a.y) ||
+    !Number.isFinite(a.z)
+  ) {
+    motionAvailable = false;
+    currentAcceleration = NaN;
+    stopStartTime = null;
+    return;
+  }
+
+  const now = Date.now();
+
+  const value =
+    Math.abs(a.x) +
+    Math.abs(a.y) +
+    Math.abs(a.z);
+
+  motionSamples.push({
+    value,
+    time: now
+  });
+
+  // 直近1秒の加速度の平均
+  motionSamples = motionSamples.filter(
+    item=>now-item.time<=1000
+  );
+
+  currentAcceleration =
+    motionSamples.reduce(
+      (sum,item)=>sum+item.value,0
+    )/motionSamples.length;
+
+  motionUpdatedAt = now;
+  motionAvailable = true;
+}
+
+// ============================================
+// 起動
+// ============================================
+
+async function startSystem() {
+  if (systemStarted) return;
+
+  const startButton = el("start-button");
+  startButton.disabled = true;
+
+  try {
+    // iPhone Safariのモーション許可
+    if (
+      typeof DeviceMotionEvent!=="undefined" &&
+      typeof DeviceMotionEvent.requestPermission===
+        "function"
+    ) {
+      const permission =
+        await DeviceMotionEvent.requestPermission();
+
+      if (permission!=="granted") {
+        alert("加速度センサーを許可してください");
+        startButton.disabled = false;
+        return;
+      }
+    }
+
+    window.addEventListener(
+      "devicemotion",
+      handleMotion
+    );
+
+    // 音声をユーザー操作で有効化
+    if (window.speechSynthesis) {
+      const silent =
+        new SpeechSynthesisUtterance("");
+      window.speechSynthesis.speak(silent);
+    }
+
+    // GPSは停止判定に必要だが、
+    // 許可されなくてもAI自体は起動する
+    startGPS();
+
+    el("title-container").style.display="none";
+    el("image-container").style.display="none";
+    startButton.style.display="none";
+    el("help-button").style.display="none";
+    el("sensor-data").style.display="block";
+
+    showMessage("AI起動中...","neutral");
+
+    model = await tmImage.load(
+      MODEL_URL+"model.json",
+      MODEL_URL+"metadata.json"
+    );
+
+    maxPredictions = model.getTotalClasses();
+
+    webcam = new tmImage.Webcam(500,500,false);
+
+    await webcam.setup({
+      facingMode:"environment"
+    });
+
+    await webcam.play();
+
+    el("webcam-container").appendChild(
+      webcam.canvas
+    );
+
+    systemStarted = true;
+
+    showMessage(
+      "監視中\n（安全運転で！）",
+      "neutral"
+    );
+
+    setInterval(updateSystem,200);
+    setInterval(recordLog,LOG_INTERVAL_MS);
+
+    window.requestAnimationFrame(loop);
+
+  } catch(error) {
+    console.error("システム起動エラー",error);
+
+    alert(
+      "起動できませんでした。\n" +
+      "通信環境・カメラの許可・モデルURLを確認してください。"
+    );
+
+    startButton.disabled=false;
+    startButton.style.display="inline-block";
+    el("title-container").style.display="";
+    el("image-container").style.display="";
+    el("help-button").style.display="";
+    el("sensor-data").style.display="none";
+    el("warning-message").style.display="none";
+  }
+}
+
+// ============================================
+// AIの推論
+// ============================================
+
+async function loop(timestamp) {
+  if (!systemStarted) return;
+
+  try {
+    webcam.update();
+
+    if (timestamp-lastPredictAt>=AI_INTERVAL_MS) {
+      lastPredictAt=timestamp;
+      await predict();
+    }
+
+  } catch(error) {
+    console.error("AI推論エラー",error);
+    el("val-class").textContent="AIエラー";
+  }
+
+  window.requestAnimationFrame(loop);
+}
+
+async function predict() {
+  if (!model || !webcam) return;
+
+  const prediction =
+    await model.predict(webcam.canvas);
+
+  let currentStopProb=0;
+  let currentBestClass="---";
+  let currentBestProb=0;
+
+  for (const item of prediction) {
+    const name=String(item.className||"");
+    const probability=Number(item.probability)||0;
+
+    if (probability>currentBestProb) {
+      currentBestProb=probability;
+      currentBestClass=name;
+    }
+
+    if (name.trim()===STOP_LABEL) {
+      currentStopProb=probability;
+    }
+  }
+
+  stopProb=currentStopProb;
+  bestClass=currentBestClass;
+  bestProb=currentBestProb;
+
+  const now=Date.now();
+
+  // 標識を見失った時間を記録
+  if (stopProb<THRESHOLD_AI_LOST) {
+    if (!signAbsentSince) {
+      signAbsentSince=now;
+    }
+  } else {
+    signAbsentSince=0;
+  }
+
+  // AI認識の連続判定
+  if (
+    bestClass.trim()===STOP_LABEL &&
+    stopProb>=THRESHOLD_AI
+  ) {
+    signConfirmCount++;
+    signLostCount=0;
+
+  } else if (stopProb<THRESHOLD_AI_LOST) {
+    signConfirmCount=0;
+    signLostCount++;
+
+  } else {
+    // 中間確率では連続カウントをリセット
+    signConfirmCount=0;
+    signLostCount=0;
+  }
+
+  // 「見えている」状態を更新
+  if (
+    isSignVisible &&
+    signLostCount>=SIGN_LOST_FRAMES
+  ) {
+    isSignVisible=false;
+    el("flag-visible").textContent="false";
+  }
+
+  // 最初の標識を認識した場合
+  if (
+    phase==="idle" &&
+    !isSignVisible &&
+    signConfirmCount>=SIGN_CONFIRM_FRAMES
+  ) {
+    isSignVisible=true;
+    beginStopMonitoring();
+  }
+}
+
+// ============================================
+// 停止判定の開始
+// ============================================
+
+function beginStopMonitoring() {
+  if (phase!=="idle") return;
+
+  phase="monitoring";
+  monitorStartedAt=Date.now();
+
+  hasStopped=false;
+  stoppedByEstimate=false;
+  stopStartTime=null;
+
+  // 標識を見つけた時点の走行履歴を保存
+  hadMovingBeforeSign=recentMoving();
+
+  el("flag-visible").textContent="true";
+  el("flag-stopped").textContent="確認中";
+
+  showMessage(
+    "前方注意！\n一時停止あり",
+    "orange"
+  );
+
+  speakAlert("前方に、一時停止があります。");
+}
+
+// ============================================
+// 停止判定の終了
+// ============================================
+
+function finishMonitoring(
+  message,
+  explanation,
+  color="neutral"
+) {
+  if (phase!=="monitoring") return;
+
+  phase="result";
+  resultAt=Date.now();
+  resultText=message;
+
+  showMessage(message,color);
+  el("flag-stopped").textContent=explanation;
+
+  if (message==="停止確認") {
+    speakAlert("停止状態を確認しました");
+
+  } else if (message==="停止推定") {
+    speakAlert("停止状態を推定しました");
+
+  } else if (message==="停止未確認") {
+    speakAlert("停止を確認できませんでした");
+  }
+
+  // 判定終了後、同じ標識で再判定しない
+  signConfirmCount=0;
+}
+
+// ============================================
+// センサーと判定の定期更新
+// ============================================
+
+function updateSystem() {
+  if (!systemStarted) return;
+
+  const now=Date.now();
+
+  // メーター表示
+  el("val-speed").textContent=
+    gpsFresh()
+      ? gpsSpeedKmh.toFixed(1)
+      : "--";
+
+  el("val-gps-source").textContent=
+    gpsFresh()
+      ? gpsSpeedSource
+      : gpsSpeedSource+"（更新待ち）";
+
+  el("val-accuracy").textContent=
+    Number.isFinite(gpsAccuracy)
+      ? gpsAccuracy.toFixed(1)+"m"
+      : "--";
+
+  el("val-acc").textContent=
+    motionFresh()
+      ? currentAcceleration.toFixed(2)
+      : "取得不可";
+
+  el("val-ai").textContent=
+    stopProb.toFixed(2);
+
+  el("val-class").textContent=
+    bestClass+" ("+
+    (bestProb*100).toFixed(0)+"%)";
+
+  el("val-confirm").textContent=
+    signConfirmCount;
+
+  el("val-moving").textContent=
+    recentMoving()?"あり":"なし";
+
+  // 判定段階
+  const phaseNames={
+    idle:"標識待機",
+    monitoring:"停止監視中",
+    result:"判定終了"
+  };
+
+  el("val-phase").textContent=phaseNames[phase];
+
+  if (phase==="monitoring") {
+
+    const elapsed=now-monitorStartedAt;
+
+    const gpsOK=gpsFresh();
+    const motionOK=motionFresh();
+
+    // GPS・加速度・走行履歴がそろっているか
+    const canJudge=
+      gpsOK &&
+      motionOK &&
+      hadMovingBeforeSign;
+
+    const speedLow=
+      gpsOK &&
+      gpsSpeedKmh<=STOP_SPEED_KMH;
+
+    const motionLow=
+      motionOK &&
+      currentAcceleration<=THRESHOLD_ACCEL;
+
+    if (canJudge && speedLow && motionLow) {
+      if (stopStartTime===null) {
+        stopStartTime=now;
+      }
+
+      if (
+        now-stopStartTime>=STOP_CONFIRM_MS
+      ) {
+        hasStopped=true;
+
+        if (gpsSpeedSource==="位置推定") {
+          stoppedByEstimate=true;
+
+          finishMonitoring(
+            "停止推定\n（GPS位置推定）",
+            "停止推定",
+            "green"
+          );
+
+        } else {
+          finishMonitoring(
+            "停止確認\n（GPS＋加速度）",
+            "停止確認",
+            "green"
+          );
+        }
+
+        return;
+      }
+
+      el("flag-stopped").textContent=
+        "停止候補";
+
+    } else {
+      // センサー情報が欠けた場合も継続計測しない
+      stopStartTime=null;
+
+      if (!gpsOK) {
+        el("flag-stopped").textContent=
+          "GPS取得待ち";
+
+      } else if (!motionOK) {
+        el("flag-stopped").textContent=
+          "加速度取得待ち";
+
+      } else if (!hadMovingBeforeSign) {
+        el("flag-stopped").textContent=
+          "走行履歴未確認";
+
+      } else {
+        el("flag-stopped").textContent=
+          "走行中・停止条件未達";
+      }
+    }
+
+    // 規定時間を経過したときの扱い
+    if (elapsed>=MONITOR_MS) {
+
+      if (!gpsOK || !motionOK ||
+          !hadMovingBeforeSign) {
+        finishMonitoring(
+          "判定不能\n（データ不足）",
+          "判定不能",
+          "neutral"
+        );
+
+      } else {
+        finishMonitoring(
+          "停止未確認\n（要確認）",
+          "停止未確認",
+          "red"
+        );
+      }
+
+      return;
+    }
+  }
+
+  if (phase==="result") {
+
+    // 結果を一定時間表示
+    if (
+      now-resultAt>=RESULT_DISPLAY_MS
+    ) {
+      showMessage(
+        "次の標識を待機中",
+        "neutral"
+      );
+    }
+
+    // 標識が5秒以上見えなくなってから再開
+    const absentLongEnough=
+      signAbsentSince>0 &&
+      now-signAbsentSince>=REARM_ABSENT_MS;
+
+    if (
+      now-resultAt>=RESULT_DISPLAY_MS &&
+      absentLongEnough
+    ) {
+      phase="idle";
+      hasStopped=false;
+      stopStartTime=null;
+      resultText="";
+      signConfirmCount=0;
+      signLostCount=0;
+      isSignVisible=false;
+
+      el("flag-visible").textContent="false";
+      el("flag-stopped").textContent="未確認";
+
+      showMessage(
+        "監視中\n（安全運転で！）",
+        "neutral"
+      );
+    }
+  }
+
+  el("log-count").textContent=
+    "記録件数："+logs.length;
+}
+
+// ============================================
+// CSV記録
+// ============================================
+
+function recordLog() {
+  if (!systemStarted) return;
+
+  const now=new Date();
+
+  logs.push({
+    time:localTime(now),
+    gpsSpeed:gpsFresh()
+      ? gpsSpeedKmh.toFixed(2)
+      : "",
+    gpsSource:gpsSpeedSource,
+    gpsAccuracy:Number.isFinite(gpsAccuracy)
+      ? gpsAccuracy.toFixed(1)
+      : "",
+    gpsFresh:gpsFresh(),
+    acceleration:motionFresh()
+      ? currentAcceleration.toFixed(3)
+      : "",
+    motionFresh:motionFresh(),
+    aiProbability:(stopProb*100).toFixed(1),
+    aiClass:bestClass,
+    signVisible:isSignVisible,
+    movingHistory:recentMoving(),
+    phase,
+    stopState:el("flag-stopped").textContent,
+    result:resultText
+  });
+
+  if (logs.length>MAX_LOGS) {
+    logs.shift();
+  }
+
+  el("log-count").textContent=
+    "記録件数："+logs.length;
+}
+
+function csvEscape(value) {
+  return '"' +
+    String(value??"").replace(/"/g,'""') +
+    '"';
+}
+
+function downloadCSV() {
+  if (!logs.length) {
+    alert("まだ記録データがありません");
+    return;
+  }
+
+  const headers=[
+    "日時",
+    "GPS速度_kmh",
+    "GPS速度取得方法",
+    "GPS精度_m",
+    "GPS更新有効",
+    "加速度合計_m_s2",
+    "加速度更新有効",
+    "止まれ認識率_pct",
+    "AI判定クラス",
+    "標識検知中",
+    "走行履歴",
+    "判定段階",
+    "停止状態",
+    "最終判定結果"
+  ];
+
+  const rows=logs.map(item=>[
+    item.time,
+    item.gpsSpeed,
+    item.gpsSource,
+    item.gpsAccuracy,
+    item.gpsFresh,
+    item.acceleration,
+    item.motionFresh,
+    item.aiProbability,
+    item.aiClass,
+    item.signVisible,
+    item.movingHistory,
+    item.phase,
+    item.stopState,
+    item.result
+  ]);
+
+  const csv=[headers,...rows]
+    .map(row=>row.map(csvEscape).join(","))
+    .join("\r\n");
+
+  // Excelで文字化けを防ぐBOM
+  const blob=new Blob(
+    ["\uFEFF"+csv],
+    {type:"text/csv;charset=utf-8;"}
+  );
+
+  const blobURL=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+
+  link.href=blobURL;
+  link.download=
+    "stop_detection_"+
+    new Date().toISOString().slice(0,10)+
+    ".csv";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(()=>{
+    URL.revokeObjectURL(blobURL);
+  },10000);
+}
+</script>
+
+</body>
+</html>
