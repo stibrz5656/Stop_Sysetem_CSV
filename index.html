@@ -353,20 +353,20 @@ body {
 
 // 最新版で使用しているAIモデルを維持
 const MODEL_URL =
-  "https://teachablemachine.withgoogle.com/models/-RzfjiMK8/";
+  "https://teachablemachine.withgoogle.com/models/B4ej7KjxK/";
 
 const STOP_LABEL = "止まれ";
 
 // AI認識
 const THRESHOLD_AI = 0.80;
-const THRESHOLD_AI_LOST = 0.45;
+const THRESHOLD_AI_LOST = 0.60;
 const SIGN_CONFIRM_FRAMES = 3;
 const SIGN_LOST_FRAMES = 6;
 const AI_INTERVAL_MS = 250;
 
 // 停止判定
 // GPS速度 1.5km/h 以下
-const STOP_SPEED_KMH = 1.5;
+const STOP_SPEED_KMH = 3.0;
 
 // 3軸の加速度絶対値の合計（m/s²）
 const THRESHOLD_ACCEL = 0.50;
