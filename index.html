@@ -365,8 +365,8 @@ const SIGN_LOST_FRAMES = 6;
 const AI_INTERVAL_MS = 250;
 
 // 停止判定
-// GPS速度 3.0km/h 以下
-const STOP_SPEED_KMH = 3.0;
+// GPS速度 5.0km/h 以下
+const STOP_SPEED_KMH = 5.0;
 
 // 3軸の加速度絶対値の合計（m/s²）
 const THRESHOLD_ACCEL = 0.50;
@@ -383,13 +383,13 @@ const GPS_STALE_MS = 6000;
 const MOTION_STALE_MS = 2500;
 
 // 標識を認識してからの監視期間
-const MONITOR_MS = 10000;
+const MONITOR_MS = 12500;
 
 // 結果を表示する期間
-const RESULT_DISPLAY_MS = 3500;
+const RESULT_DISPLAY_MS = 1500;
 
 // 次の標識として再認識する条件
-const REARM_ABSENT_MS = 2000;
+const REARM_ABSENT_MS = 1000;
 
 // CSV記録
 const LOG_INTERVAL_MS = 500;
