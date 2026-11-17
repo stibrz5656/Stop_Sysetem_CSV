@@ -55,7 +55,7 @@ body {
 }
 
 .main-container {
-  padding-top: 60px;
+  padding-top: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -134,10 +134,10 @@ body {
 #webcam-container {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   min-height: 50vh;
   position: relative;
-  margin-top: 20px;
+  margin-top: 0;
 }
 
 #webcam-container canvas {
@@ -260,6 +260,18 @@ body {
     padding: 18px 20px;
   }
 }
+
+/* 情報ボックスをカメラの下に配置 */
+#sensor-data {
+  position: static;
+  top: auto;
+  right: auto;
+  width: min(500px, 90vw);
+  max-width: 90vw;
+  margin: 15px auto 25px;
+  box-sizing: border-box;
+}
+
 </style>
 </head>
 
@@ -271,6 +283,36 @@ body {
 
 <div id="date-display">----/--/-- --:--:--</div>
 
+<div class="main-container">
+  <div id="title-container">
+    <span class="logo-char char-b">S</span>
+    <span class="logo-char char-p">T</span>
+    <span class="logo-char char-y">O</span>
+    <span class="logo-char char-g">P</span>
+    <div class="sub-title">Detection System</div>
+  </div>
+
+  <div id="image-container">
+    <img
+      id="character-image"
+      src="キャラ.png"
+      alt="表示できません"
+      class="roadmap-img"
+    >
+  </div>
+
+  <button
+    id="start-button"
+    type="button"
+    onclick="startSystem()"
+  >
+    Tap to Start
+  </button>
+</div>
+
+<div class="container-center">
+  <div id="webcam-container"></div>
+</div>
 
 <div id="sensor-data">
   <div>日時: <span id="val-date">--</span></div>
@@ -324,37 +366,6 @@ body {
     CSV記録を保存
   </button>
   <div id="log-count">記録件数：0</div>
-</div>
-
-<div class="main-container">
-  <div id="title-container">
-    <span class="logo-char char-b">S</span>
-    <span class="logo-char char-p">T</span>
-    <span class="logo-char char-y">O</span>
-    <span class="logo-char char-g">P</span>
-    <div class="sub-title">Detection System</div>
-  </div>
-
-  <div id="image-container">
-    <img
-      id="character-image"
-      src="キャラ.png"
-      alt="表示できません"
-      class="roadmap-img"
-    >
-  </div>
-
-  <button
-    id="start-button"
-    type="button"
-    onclick="startSystem()"
-  >
-    Tap to Start
-  </button>
-</div>
-
-<div class="container-center">
-  <div id="webcam-container"></div>
 </div>
 
 <div id="speed-warning">⚠ スピード注意 ⚠</div>
