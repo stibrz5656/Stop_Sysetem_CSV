@@ -218,6 +218,24 @@ body {
   pointer-events: none;
 }
 
+/* 速度注意表示 */
+#speed-warning {
+  display: none;
+  position: fixed;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #FF9500;
+  color: white;
+  padding: 12px 25px;
+  border-radius: 15px;
+  font-size: 22px;
+  font-weight: bold;
+  z-index: 110;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  white-space: nowrap;
+}
+
 @media (max-width:480px) {
   #date-display {
     right: 8px;
@@ -339,6 +357,7 @@ body {
   <div id="webcam-container"></div>
 </div>
 
+<div id="speed-warning">⚠ 速度注意！20km/h以上</div>
 <div id="warning-message">監視中...</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -351,7 +370,6 @@ body {
 // 設定
 // ============================================
 
-// 最新版で使用しているAIモデルを維持
 const MODEL_URL =
   "https://teachablemachine.withgoogle.com/models/5HpQy3aEu/";
 
@@ -359,10 +377,17 @@ const STOP_LABEL = "止まれ";
 
 // AI認識
 const THRESHOLD_AI = 0.80;
-const THRESHOLD_AI_LOST = 0.60;
-const SIGN_CONFIRM_FRAMES = 5;
+const THRESHOLD_AI_LOST = 0.45;
+const SIGN_CONFIRM_FRAMES = 3;
 const SIGN_LOST_FRAMES = 6;
 const AI_INTERVAL_MS = 250;
+
+// 速度注意設定
+const SPEED_WARNING_KMH = 0;
+const SPEED_WARNING_COUNT = 5;
+
+let speedWarningCount = 0;
+let speedWarningActive = false;
 
 // 停止判定
 // GPS速度 5.0km/h 以下
@@ -372,7 +397,7 @@ const STOP_SPEED_KMH = 5.0;
 const THRESHOLD_ACCEL = 2.00;
 
 // 両条件が1.5秒間続く
-const STOP_CONFIRM_MS = 1500;
+const STOP_CONFIRM_MS = 1000;
 
 // 走行履歴の確認
 const MOVING_SPEED_KMH = 3.0;
@@ -386,10 +411,10 @@ const MOTION_STALE_MS = 2500;
 const MONITOR_MS = 12500;
 
 // 結果を表示する期間
-const RESULT_DISPLAY_MS = 1500;
+const RESULT_DISPLAY_MS = 3000;
 
 // 次の標識として再認識する条件
-const REARM_ABSENT_MS = 1000;
+const REARM_ABSENT_MS = 5000;
 
 // CSV記録
 const LOG_INTERVAL_MS = 500;
@@ -533,25 +558,60 @@ function showMessage(message, colors = "neutral") {
   box.style.display = "block";
 }
 
+
+let speechRequestId = 0;
+let currentSpeech = null;
+
 function speakAlert(text) {
   if (!window.speechSynthesis) return;
 
+  const synth = window.speechSynthesis;
+  const requestId = ++speechRequestId;
+
   try {
-    window.speechSynthesis.cancel();
+    // 以前の音声を中断
+    synth.cancel();
 
-    const speech =
-      new SpeechSynthesisUtterance(text);
+    // 短い間隔を空けて新しい音声を再生
+    setTimeout(() => {
+      // すでに新しい音声要求がある場合は再生しない
+      if (requestId !== speechRequestId) return;
 
-    speech.lang = "ja-JP";
-    speech.rate = 1.15;
-    speech.volume = 1;
+      const speech =
+        new SpeechSynthesisUtterance(text);
 
-    window.speechSynthesis.speak(speech);
+      speech.lang = "ja-JP";
+      speech.rate = 1.05;
+      speech.volume = 1;
 
-  } catch(error) {
-    console.warn("音声エラー",error);
+      currentSpeech = speech;
+
+      speech.onend = () => {
+        if (currentSpeech === speech) {
+          currentSpeech = null;
+        }
+      };
+
+      speech.onerror = (event) => {
+        console.warn(
+          "音声再生エラー:",
+          event.error
+        );
+      };
+
+      if (synth.paused) {
+        synth.resume();
+      }
+
+      synth.speak(speech);
+
+    }, 120);
+
+  } catch (error) {
+    console.warn("音声エラー:", error);
   }
 }
+
 
 function showHelp() {
   alert(
@@ -688,10 +748,10 @@ function onGPS(position) {
 
     recentSpeedSamples =
       recentSpeedSamples.filter(
-        s=>now-s.time<=5000
+        s=>now-s.time<=2500
       );
 
-    if (recentSpeedSamples.length>5) {
+    if (recentSpeedSamples.length>3) {
       recentSpeedSamples.shift();
     }
 
@@ -703,6 +763,28 @@ function onGPS(position) {
     gpsSpeedSource = nextSource;
     gpsUpdatedAt = now;
     gpsAvailable = true;
+
+    // 20km/h以上の連続検知
+if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
+
+    speedWarningCount++;
+
+    if (
+        speedWarningCount >= SPEED_WARNING_COUNT &&
+        !speedWarningActive
+    ) {
+        speedWarningActive = true;
+
+        el("speed-warning").style.display = "block";
+    }
+
+} else {
+
+    speedWarningCount = 0;
+    speedWarningActive = false;
+
+    el("speed-warning").style.display = "none";
+}
 
     // 走行履歴は連続したGPS更新で確認
     if (gpsSpeedKmh>=MOVING_SPEED_KMH) {
@@ -767,7 +849,7 @@ function handleMotion(event) {
 
   // 直近1秒の加速度の平均
   motionSamples = motionSamples.filter(
-    item=>now-item.time<=1000
+    item=>now-item.time<=500
   );
 
   currentAcceleration =
@@ -1025,15 +1107,17 @@ function finishMonitoring(
   showMessage(message,color);
   el("flag-stopped").textContent=explanation;
 
-  if (message==="停止確認") {
-    speakAlert("停止状態を確認しました");
+  
+if (message.startsWith("停止確認")) {
+  speakAlert("停止状態を確認しました");
 
-  } else if (message==="停止推定") {
-    speakAlert("停止状態を推定しました");
+} else if (message.startsWith("停止推定")) {
+  speakAlert("停止状態を推定しました");
 
-  } else if (message==="停止未確認") {
-    speakAlert("停止を確認できませんでした");
-  }
+} else if (message.startsWith("停止未確認")) {
+  speakAlert("停止を確認できませんでした");
+}
+
 
   // 判定終了後、同じ標識で再判定しない
   signConfirmCount=0;
@@ -1047,6 +1131,15 @@ function updateSystem() {
   if (!systemStarted) return;
 
   const now=Date.now();
+
+// GPSが取得できなくなったら速度警告を解除
+  if (!gpsFresh()) {
+
+    speedWarningCount = 0;
+    speedWarningActive = false;
+
+    el("speed-warning").style.display = "none";
+  }
 
   // メーター表示
   el("val-speed").textContent=
@@ -1079,8 +1172,14 @@ function updateSystem() {
   el("val-confirm").textContent=
     signConfirmCount;
 
-  el("val-moving").textContent=
-    recentMoving()?"あり":"なし";
+  
+el("val-moving").textContent =
+  phase === "idle"
+    ? (recentMoving() ? "あり" : "なし")
+    : (hadMovingBeforeSign
+        ? "あり（判定有効）"
+        : "なし（判定不可）");
+
 
   // 判定段階
   const phaseNames={
