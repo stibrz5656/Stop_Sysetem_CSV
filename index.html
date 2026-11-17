@@ -195,27 +195,30 @@ body {
 /* 警告メッセージ */
 #warning-message {
   display: none;
-  font-size: 24px;
-  line-height: 1.4;
+  font-size: 20px;
+  line-height: 1.2;
   color: white;
   font-weight: bold;
-  padding: 15px 20px;
-  width: min(75%, 340px);
+
+  padding: 8px 15px;
+  width: min(500px, 90vw);
+  max-width: 90vw;
   box-sizing: border-box;
-  border-radius: 15px;
+
+  border-radius: 12px;
   white-space: pre-line;
 
-  /* 画面中央固定を解除 */
   position: static;
   transform: none;
 
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  box-shadow: 0 4px 10px rgba(0,0,0,.2);
+
   background-image: linear-gradient(
     135deg,#555 0%,#333 100%
   );
 
-  margin: 15px auto;
+  margin: 5px auto;
   z-index: auto;
   pointer-events: none;
 }
@@ -270,10 +273,9 @@ body {
   right: auto;
   width: min(500px, 90vw);
   max-width: 90vw;
-  margin: 15px auto 25px;
+  margin: 5px auto;
   box-sizing: border-box;
 }
-
 </style>
 </head>
 
