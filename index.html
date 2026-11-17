@@ -794,8 +794,10 @@ if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
         speedWarningActive = true;
 
         el("speed-warning").style.display = "block";
-    }
-
+          if (message.startsWith("速度警告")) {
+           speakAlert("スピードに注意してください");
+          }
+        }
 } else {
 
     speedWarningCount = 0;
