@@ -357,7 +357,7 @@ body {
   <div id="webcam-container"></div>
 </div>
 
-<div id="speed-warning">⚠ 速度注意！20km/h以上</div>
+<div id="speed-warning">⚠ 速度30km/h以上注意 ⚠</div>
 <div id="warning-message">監視中...</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -383,7 +383,9 @@ const SIGN_LOST_FRAMES = 6;
 const AI_INTERVAL_MS = 250;
 
 // 速度注意設定
-const SPEED_WARNING_KMH = 0;
+//  GPS速度　30.0km/h 以上
+const SPEED_WARNING_KMH = 30;
+//  30km/hを5回連続検知
 const SPEED_WARNING_COUNT = 5;
 
 let speedWarningCount = 0;
@@ -764,7 +766,7 @@ function onGPS(position) {
     gpsUpdatedAt = now;
     gpsAvailable = true;
 
-    // 20km/h以上の連続検知
+    // 30km/h以上の連続検知
 if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
 
     speedWarningCount++;
