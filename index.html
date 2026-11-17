@@ -192,29 +192,31 @@ body {
   margin-top: 4px;
 }
 
-/* ===== 元の警告表示 ===== */
+/* 警告メッセージ */
 #warning-message {
   display: none;
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1.4;
   color: white;
   font-weight: bold;
-  padding: 20px 30px;
-  width: 75%;
-  max-width: 340px;
-  border-radius: 25px;
+  padding: 15px 20px;
+  width: min(75%, 340px);
+  box-sizing: border-box;
+  border-radius: 15px;
   white-space: pre-line;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%,-50%);
-  z-index: 90;
+
+  /* 画面中央固定を解除 */
+  position: static;
+  transform: none;
+
   text-align: center;
-  box-shadow: 0 15px 35px rgba(0,0,0,.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
   background-image: linear-gradient(
     135deg,#555 0%,#333 100%
   );
-  transition: background-color .3s ease;
+
+  margin: 15px auto;
+  z-index: auto;
   pointer-events: none;
 }
 
@@ -313,9 +315,8 @@ body {
 <div class="container-center">
   <div id="webcam-container"></div>
 </div>
-
+<div id="warning-message">監視中...</div>
 <div id="sensor-data">
-  <div>日時: <span id="val-date">--</span></div>
   <div>
     GPS速度:
     <span id="val-speed" style="color:#2ECC71">--</span>
@@ -369,7 +370,7 @@ body {
 </div>
 
 <div id="speed-warning">⚠ スピード注意 ⚠</div>
-<div id="warning-message">監視中...</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
@@ -394,8 +395,8 @@ const SIGN_LOST_FRAMES = 6;
 const AI_INTERVAL_MS = 250;
 
 // 速度注意設定
-//  GPS設定速度　--km/h 以上
-const SPEED_WARNING_KMH = 0;
+//  GPS設定速度　255km/h 以上
+const SPEED_WARNING_KMH = 25;
 //  30km/hを5回連続検知
 const SPEED_WARNING_COUNT = 5;
 
