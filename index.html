@@ -399,8 +399,8 @@ const SIGN_LOST_FRAMES = 6;
 const AI_INTERVAL_MS = 250;
 
 // 速度注意設定
-//  GPS設定速度　255km/h 以上
-const SPEED_WARNING_KMH = 0;
+//  GPS設定速度　25km/h 以上
+const SPEED_WARNING_KMH = 25;
 //  30km/hを5回連続検知
 const SPEED_WARNING_COUNT = 5;
 
@@ -794,10 +794,8 @@ if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
         speedWarningActive = true;
 
         el("speed-warning").style.display = "block";
-          if (message.startsWith("速度警告")) {
-           speakAlert("スピードに注意してください");
-          }
-        }
+    }
+
 } else {
 
     speedWarningCount = 0;
