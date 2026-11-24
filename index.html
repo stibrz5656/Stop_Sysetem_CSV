@@ -317,7 +317,6 @@ body {
 
 <div class="container-center">
   <div id="webcam-container"></div>
-  </div>
 </div>
 <div id="warning-message">監視中...</div>
 <div id="sensor-data">
@@ -513,7 +512,6 @@ function localTime(date = new Date()) {
 function updateDateTime() {
   const text = localTime();
   el("date-display").textContent = text;
-  el("val-date").textContent = text;
 }
 
 updateDateTime();
@@ -780,7 +778,7 @@ if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
         speedWarningActive = true;
 
         el("speed-warning").style.display = "block";
-          speakAlert("スピードに注意してください");
+          speakAlert("減速してください");
     }
 
 } else {
@@ -1366,7 +1364,9 @@ function recordLog() {
     movingHistory:recentMoving(),
     phase,
     stopState:el("flag-stopped").textContent,
-    result:resultText
+    result:resultText,
+    speedWarning:speedWarningActive,
+    speedThreshold:SPEED_WARNING_KMH
   });
 
   if (logs.length>MAX_LOGS) {
@@ -1403,7 +1403,9 @@ function downloadCSV() {
     "走行履歴",
     "判定段階",
     "停止状態",
-    "最終判定結果"
+    "最終判定結果",
+    "速度注意中",
+    "速度注意設定_kmh"
   ];
 
   const rows=logs.map(item=>[
@@ -1420,7 +1422,9 @@ function downloadCSV() {
     item.movingHistory,
     item.phase,
     item.stopState,
-    item.result
+    item.result,
+    item.speedWarning,
+    item.speedThreshold
   ]);
 
   const csv=[headers,...rows]
