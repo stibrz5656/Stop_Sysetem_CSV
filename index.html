@@ -401,7 +401,7 @@ const AI_INTERVAL_MS = 250;
 // 速度注意設定
 //  GPS設定速度　25km/h 以上
 const SPEED_WARNING_KMH = 25;
-//  30km/hを5回連続検知
+//  GPS設定速度を5回連続検知
 const SPEED_WARNING_COUNT = 5;
 
 let speedWarningCount = 0;
@@ -580,54 +580,40 @@ function showMessage(message, colors = "neutral") {
 let speechRequestId = 0;
 let currentSpeech = null;
 
+
 function speakAlert(text) {
-  if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis) {
+        console.warn("音声合成に対応していません");
+        return;
+    }
 
-  const synth = window.speechSynthesis;
-  const requestId = ++speechRequestId;
+    const synth = window.speechSynthesis;
 
-  try {
-    // 以前の音声を中断
-    synth.cancel();
+    try {
+        // 前の音声を停止
+        synth.cancel();
 
-    // 短い間隔を空けて新しい音声を再生
-    setTimeout(() => {
-      // すでに新しい音声要求がある場合は再生しない
-      if (requestId !== speechRequestId) return;
+        const speech = new SpeechSynthesisUtterance(text);
 
-      const speech =
-        new SpeechSynthesisUtterance(text);
+        speech.lang = "ja-JP";
+        speech.rate = 1.0;
+        speech.pitch = 1.0;
+        speech.volume = 1.0;
 
-      speech.lang = "ja-JP";
-      speech.rate = 1.05;
-      speech.volume = 1;
+        speech.onerror = (event) => {
+            console.warn("音声再生エラー:", event.error);
+        };
 
-      currentSpeech = speech;
+        speech.onstart = () => {
+            console.log("音声再生開始:", text);
+        };
 
-      speech.onend = () => {
-        if (currentSpeech === speech) {
-          currentSpeech = null;
-        }
-      };
-
-      speech.onerror = (event) => {
-        console.warn(
-          "音声再生エラー:",
-          event.error
-        );
-      };
-
-      if (synth.paused) {
         synth.resume();
-      }
+        synth.speak(speech);
 
-      synth.speak(speech);
-
-    }, 120);
-
-  } catch (error) {
-    console.warn("音声エラー:", error);
-  }
+    } catch (error) {
+        console.error("音声エラー:", error);
+    }
 }
 
 
@@ -884,12 +870,19 @@ function handleMotion(event) {
 // ============================================
 
 async function startSystem() {
-  if (systemStarted) return;
+    if (systemStarted) return;
 
-  const startButton = el("start-button");
-  startButton.disabled = true;
+    const startButton = el("start-button");
+    startButton.disabled = true;
 
-  try {
+    // 音声エンジンをユーザー操作直後に起動
+    if (window.speechSynthesis) {
+        const silent = new SpeechSynthesisUtterance("");
+        silent.lang = "ja-JP";
+        window.speechSynthesis.speak(silent);
+    }
+
+    try {
     // iPhone Safariのモーション許可
     if (
       typeof DeviceMotionEvent!=="undefined" &&
@@ -910,13 +903,6 @@ async function startSystem() {
       "devicemotion",
       handleMotion
     );
-
-    // 音声をユーザー操作で有効化
-    if (window.speechSynthesis) {
-      const silent =
-        new SpeechSynthesisUtterance("");
-      window.speechSynthesis.speak(silent);
-    }
 
     // GPSは停止判定に必要だが、
     // 許可されなくてもAI自体は起動する
