@@ -365,6 +365,10 @@ body {
     走行履歴:
     <span id="val-moving">なし</span>
   </div>
+  <div>
+    速度注意:
+    <span id="val-speed-warning">なし</span>
+  </div>
 
   <button id="csv-button" onclick="downloadCSV()">
     CSV記録を保存
@@ -397,14 +401,18 @@ const SIGN_CONFIRM_FRAMES = 3;
 const SIGN_LOST_FRAMES = 6;
 const AI_INTERVAL_MS = 250;
 
-// 速度注意設定
-//  GPS設定速度　25km/h 以上
+// 速度注意（研究用の任意の注意値。法定速度を表すものではない）
 const SPEED_WARNING_KMH = 25;
-//  GPS設定速度を5回連続検知
-const SPEED_WARNING_COUNT = 5;
+const SPEED_WARNING_COUNT = 5;       // GPS更新5回連続
+const SPEED_WARNING_CLEAR_KMH = 23; // 解除側に余裕をもたせる
+const SPEED_WARNING_CLEAR_COUNT = 2;
+const SPEED_VOICE_COOLDOWN_MS = 12000;
 
 let speedWarningCount = 0;
+let speedWarningClearCount = 0;
 let speedWarningActive = false;
+let lastSpeedVoiceAt = 0;
+let pendingSpeedEvents = [];
 
 // 停止判定
 // GPS速度 5.0km/h 以下
@@ -413,7 +421,7 @@ const STOP_SPEED_KMH = 5.0;
 // 3軸の加速度絶対値の合計（m/s²）
 const THRESHOLD_ACCEL = 2.00;
 
-// 両条件が1.5秒間続く
+// 両条件を1秒間満たしたとき（設定値は11月24日版のまま）
 const STOP_CONFIRM_MS = 1000;
 
 // 走行履歴の確認
@@ -577,43 +585,55 @@ function showMessage(message, colors = "neutral") {
 
 let speechRequestId = 0;
 let currentSpeech = null;
+let lastImportantSpeechAt = 0;
 
+// 一時停止に関する案内はhigh、速度注意はlowで呼ぶ。
+// lowは他の案内を中断せず、停止監視中・結果表示中には鳴らさない。
+function speakAlert(text, priority = "high") {
+  if (!window.speechSynthesis) return false;
+  const synth = window.speechSynthesis;
+  const now = Date.now();
 
-function speakAlert(text) {
-    if (!window.speechSynthesis) {
-        console.warn("音声合成に対応していません");
-        return;
-    }
+  if (priority === "low") {
+    if (phase !== "idle" || now-lastImportantSpeechAt < 4000 ||
+        synth.speaking || synth.pending) return false;
+  } else {
+    lastImportantSpeechAt = now;
+  }
 
-    const synth = window.speechSynthesis;
+  const requestId = ++speechRequestId;
+  try {
+    if (priority === "high") synth.cancel();
 
-    try {
-        // 前の音声を停止
-        synth.cancel();
+    setTimeout(() => {
+      if (requestId !== speechRequestId) return;
+      if (priority === "low" &&
+          (phase !== "idle" || synth.speaking || synth.pending ||
+           Date.now()-lastImportantSpeechAt < 4000)) return;
 
-        const speech = new SpeechSynthesisUtterance(text);
-
-        speech.lang = "ja-JP";
-        speech.rate = 1.0;
-        speech.pitch = 1.0;
-        speech.volume = 1.0;
-
-        speech.onerror = (event) => {
-            console.warn("音声再生エラー:", event.error);
-        };
-
-        speech.onstart = () => {
-            console.log("音声再生開始:", text);
-        };
-
-        synth.resume();
-        synth.speak(speech);
-
-    } catch (error) {
-        console.error("音声エラー:", error);
-    }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "ja-JP";
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      currentSpeech = utterance;
+      const done = () => {
+        if (currentSpeech === utterance) currentSpeech = null;
+      };
+      utterance.onend = done;
+      utterance.onerror = event => {
+        console.warn("音声再生エラー:", event.error);
+        done();
+      };
+      if (synth.paused) synth.resume();
+      synth.speak(utterance);
+    }, 120);
+    return true;
+  } catch (error) {
+    console.warn("音声エラー:", error);
+    return false;
+  }
 }
-
 
 function showHelp() {
   alert(
@@ -622,11 +642,15 @@ function showHelp() {
     "2. カメラ・位置情報・加速度を許可します。\n" +
     "3. スマホを固定して安全な場所で実験します。\n" +
     "4. AIが止まれ標識を検知すると警告します。\n" +
-    "5. GPS速度と加速度の両方から停止を判定します。\n" +
-    "6. 実験終了後にCSV記録を保存できます。\n\n" +
+    "5. GPS速度と加速度から停止状態を推定します。\n" +
+    "6. GPS速度25km/h以上を5回連続検知すると\n" +
+    "   『スピードを落としてください』と案内します。\n" +
+    "7. 実験終了後にCSV記録を保存できます。\n\n" +
     "【注意】\n" +
     "標識が見えなくなっただけで、停止線を" +
     "通過したとは判定できません。\n" +
+    "25km/hは研究用の注意設定値です。\n" +
+    "5km/h以下でも完全停止とは限りません。\n" +
     "このシステムは研究用であり、交通違反を" +
     "判定するものではありません。\n" +
     "走行中はスマートフォンを操作しないでください。"
@@ -676,6 +700,56 @@ function startGPS() {
       timeout: 15000
     }
   );
+}
+
+// 速度注意の切替履歴を、次のCSV記録時に確実に残す。
+function queueSpeedEvent(kind) {
+  pendingSpeedEvents.push({
+    kind,
+    time: localTime(new Date()) + "." +
+      String(new Date().getMilliseconds()).padStart(3, "0")
+  });
+}
+
+function clearSpeedWarning(reason = "減速") {
+  if (speedWarningActive) queueSpeedEvent("速度注意解除("+reason+")");
+  speedWarningCount = 0;
+  speedWarningClearCount = 0;
+  speedWarningActive = false;
+  el("speed-warning").style.display = "none";
+}
+
+function trySpeedVoice() {
+  if (!speedWarningActive || phase !== "idle" || !gpsFresh()) return;
+  const now = Date.now();
+  if (now-lastSpeedVoiceAt < SPEED_VOICE_COOLDOWN_MS) return;
+  if (speakAlert("スピードを落としてください", "low")) {
+    lastSpeedVoiceAt = now;
+  }
+}
+
+// GPS位置情報が新しく届くたびに1回だけ判定する。
+function checkSpeedWarning() {
+  if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
+    speedWarningCount++;
+    speedWarningClearCount = 0;
+    if (!speedWarningActive && speedWarningCount >= SPEED_WARNING_COUNT) {
+      speedWarningActive = true;
+      queueSpeedEvent("速度注意開始");
+      el("speed-warning").style.display = "block";
+    }
+  } else {
+    speedWarningCount = 0;
+    if (speedWarningActive && gpsSpeedKmh <= SPEED_WARNING_CLEAR_KMH) {
+      speedWarningClearCount++;
+      if (speedWarningClearCount >= SPEED_WARNING_CLEAR_COUNT) {
+        clearSpeedWarning("減速");
+      }
+    } else {
+      speedWarningClearCount = 0;
+    }
+  }
+  trySpeedVoice();
 }
 
 function onGPS(position) {
@@ -735,6 +809,8 @@ function onGPS(position) {
   if (now-fixTime>GPS_STALE_MS) {
     gpsAvailable = false;
     gpsSpeedSource = "GPS更新遅延";
+    clearSpeedWarning("GPS更新遅延");
+    movingFixCount = 0;
     return;
   }
 
@@ -766,28 +842,7 @@ function onGPS(position) {
     gpsUpdatedAt = now;
     gpsAvailable = true;
 
-    // GPS設定速度以上の連続検知
-if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
-
-    speedWarningCount++;
-
-    if (
-        speedWarningCount >= SPEED_WARNING_COUNT &&
-        !speedWarningActive
-    ) {
-        speedWarningActive = true;
-
-        el("speed-warning").style.display = "block";
-          speakAlert("減速してください");
-    }
-
-} else {
-
-    speedWarningCount = 0;
-    speedWarningActive = false;
-
-    el("speed-warning").style.display = "none";
-}
+    checkSpeedWarning();
 
     // 走行履歴は連続したGPS更新で確認
     if (gpsSpeedKmh>=MOVING_SPEED_KMH) {
@@ -809,6 +864,8 @@ if (gpsSpeedKmh >= SPEED_WARNING_KMH) {
         : nextSource==="速度異常"
           ? "速度異常"
           : "速度計算待ち";
+    clearSpeedWarning("GPS取得不可");
+    movingFixCount = 0;
   }
 }
 
@@ -816,6 +873,8 @@ function onGPSError(error) {
   gpsAvailable = false;
   gpsSpeedKmh = NaN;
   gpsSpeedSource = "GPSエラー(" + error.code + ")";
+  clearSpeedWarning("GPSエラー");
+  movingFixCount = 0;
   console.warn("GPSエラー",error);
 }
 
@@ -850,7 +909,7 @@ function handleMotion(event) {
     time: now
   });
 
-  // 直近1秒の加速度の平均
+  // 直近0.5秒の加速度の平均
   motionSamples = motionSamples.filter(
     item=>now-item.time<=500
   );
@@ -1112,13 +1171,15 @@ function finishMonitoring(
 
   
 if (message.startsWith("停止確認")) {
-  speakAlert("停止状態を確認しました");
+  speakAlert("一時停止しました、安全を確認し発進してください。");
 
 } else if (message.startsWith("停止推定")) {
   speakAlert("停止状態を推定しました");
 
 } else if (message.startsWith("停止未確認")) {
-  speakAlert("停止を確認できませんでした");
+  speakAlert("危険です！一時停止を確認できませんでした。");
+} else if (message.startsWith("判定不能")) {
+  speakAlert("停止状態を判定できませんでした");
 }
 
 
@@ -1135,14 +1196,10 @@ function updateSystem() {
 
   const now=Date.now();
 
-// GPSが取得できなくなったら速度警告を解除
-  if (!gpsFresh()) {
-
-    speedWarningCount = 0;
-    speedWarningActive = false;
-
-    el("speed-warning").style.display = "none";
-  }
+  // GPSが古くなった場合は警告状態を解除し、誤警告を防止。
+  if (!gpsFresh()) clearSpeedWarning("GPS更新待ち");
+  // 速度注意が続く場合は、音声を連発せず一定間隔で再案内。
+  trySpeedVoice();
 
   // メーター表示
   el("val-speed").textContent=
@@ -1182,6 +1239,9 @@ el("val-moving").textContent =
     : (hadMovingBeforeSign
         ? "あり（判定有効）"
         : "なし（判定不可）");
+
+  el("val-speed-warning").textContent =
+    speedWarningActive ? "注意中" : "なし";
 
 
   // 判定段階
@@ -1235,7 +1295,7 @@ el("val-moving").textContent =
 
         } else {
           finishMonitoring(
-            "停止確認\n（GPS＋加速度）",
+            "一時停止を確認しました",
             "停止確認",
             "green"
           );
@@ -1282,7 +1342,7 @@ el("val-moving").textContent =
 
       } else {
         finishMonitoring(
-          "停止未確認\n（要確認）",
+          "危険！一時不停止です",
           "停止未確認",
           "red"
         );
@@ -1343,9 +1403,12 @@ function recordLog() {
   if (!systemStarted) return;
 
   const now=new Date();
+  const events = pendingSpeedEvents.splice(0);
 
   logs.push({
     time:localTime(now),
+    preciseTime:localTime(now)+"."+
+      String(now.getMilliseconds()).padStart(3,"0"),
     gpsSpeed:gpsFresh()
       ? gpsSpeedKmh.toFixed(2)
       : "",
@@ -1366,7 +1429,9 @@ function recordLog() {
     stopState:el("flag-stopped").textContent,
     result:resultText,
     speedWarning:speedWarningActive,
-    speedThreshold:SPEED_WARNING_KMH
+    speedThreshold:SPEED_WARNING_KMH,
+    speedEvent:events.map(e=>e.kind).join(" / "),
+    speedEventAt:events.map(e=>e.time).join(" / ")
   });
 
   if (logs.length>MAX_LOGS) {
@@ -1405,7 +1470,10 @@ function downloadCSV() {
     "停止状態",
     "最終判定結果",
     "速度注意中",
-    "速度注意設定_kmh"
+    "速度注意設定_kmh",
+    "速度注意イベント",
+    "速度注意イベント発生時刻",
+    "詳細時刻_ミリ秒"
   ];
 
   const rows=logs.map(item=>[
@@ -1424,7 +1492,10 @@ function downloadCSV() {
     item.stopState,
     item.result,
     item.speedWarning,
-    item.speedThreshold
+    item.speedThreshold,
+    item.speedEvent,
+    item.speedEventAt,
+    item.preciseTime
   ]);
 
   const csv=[headers,...rows]
